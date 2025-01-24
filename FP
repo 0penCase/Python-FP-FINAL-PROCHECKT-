@@ -1,0 +1,40 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+import sqlite3
+
+url = 'https://www.nasa.gov'
+response = requests.get(url)
+soup = BeautifulSoup(response.text, 'html.parser')
+
+keywords = ['exoplanet', 'telescope', 'Mars']
+word_counts = {word: 0 for word in keywords}
+
+text = soup.get_text().lower()
+
+for word in keywords:
+    word_counts[word] = len(re.findall(r'\b' + re.escape(word) + r'\b', text))
+
+conn = sqlite3.connect('keywords.db')
+cursor = conn.cursor()
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS keywords_count (
+    website TEXT,
+    keyword TEXT,
+    count INTEGER
+)
+''')
+
+for word, count in word_counts.items():
+    cursor.execute('''
+    INSERT INTO keywords_count (website, keyword, count)
+    VALUES (?, ?, ?)
+    ''', (url, word, count))
+
+conn.commit()
+conn.close()
+
+print(f"Кількість входжень ключових слів на сторінці {url}:")
+for word, count in word_counts.items():
+    print(f"{word}: {count}")
